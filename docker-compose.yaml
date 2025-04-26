@@ -94,6 +94,19 @@ services:
     volumes:
       - elasticsearch-data:/usr/share/elasticsearch/data
 
+  connect-setup:
+    container_name: connect-setup
+    image: curlimages/curl
+    volumes:
+      - ./kafka-connect/bin:/kafka-connect/bin
+    depends_on:
+      connect:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    command: [ "sh", "-c", "chmod +x /kafka-connect/bin/connect-setup.sh && /kafka-connect/bin/connect-setup.sh" ]
+    restart: "no"
+
 volumes:
   mysql-data:
   kafka-data:
