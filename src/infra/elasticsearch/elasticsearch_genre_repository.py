@@ -3,20 +3,22 @@ import os
 
 from elasticsearch import Elasticsearch
 from pydantic import ValidationError
+from collections import defaultdict
 
-from src.application.list_cast_member import CastMemberSortableFields
+from src.application.list_genre import GenreSortableFields
 from src.application.listing import DEFAULT_PAGINATION_SIZE, SortDirection
-from src.domain.cast_member import CastMember
-from src.domain.cast_member_repository import (
-    CastMemberRepository,
+from src.domain.genre import Genre
+from src.domain.genre_repository import (
+    GenreRepository,
 )
 
 ELASTICSEARCH_HOST = os.getenv("ELASTICSEARCH_HOST", "http://localhost:9200")
 ELASTICSEARCH_HOST_TEST = os.getenv("ELASTICSEARCH_TEST_HOST", "http://localhost:9201")
 
 
-class ElasticsearchCastMemberRepository(CastMemberRepository):
-    INDEX = "catalog-db.codeflix.cast_members"
+class ElasticsearchGenreRepository(GenreRepository):
+    INDEX = "catalog-db.codeflix.genres"
+    _GENRE_CATEGORIES_INDEX = "catalog-db.codeflix.genre_categories"
 
     def __init__(
         self,
@@ -31,9 +33,9 @@ class ElasticsearchCastMemberRepository(CastMemberRepository):
         page: int = 1,
         per_page: int = DEFAULT_PAGINATION_SIZE,
         search: str | None = None,
-        sort: CastMemberSortableFields | None = None,
+        sort: GenreSortableFields | None = None,
         direction: SortDirection = SortDirection.ASC,
-    ) -> list[CastMember]:
+    ) -> list[Genre]:
         query = {
             "from": (page - 1) * per_page,
             "size": per_page,
@@ -55,12 +57,35 @@ class ElasticsearchCastMemberRepository(CastMemberRepository):
         )["hits"]["hits"]
 
         parsed_entities = []
+        genre_ids = [hit["_source"]["id"] for hit in hits]
+        categories_for_genres = self.fetch_categories_for_genres(genre_ids)
         for hit in hits:
             try:
-                parsed_entity = CastMember(**hit["_source"])
+                parsed_entity = Genre(
+                    **{
+                        **hit["_source"],
+                        "categories": set(categories_for_genres.get(hit["_source"]["id"], [])),
+                    }
+                )
             except ValidationError:
-                self._logger.error(f"Malformed cast_member: {hit}")
+                self._logger.error(f"Malformed genre: {hit}")
             else:
                 parsed_entities.append(parsed_entity)
 
         return parsed_entities
+    
+    def fetch_categories_for_genres(self, genre_ids: list[str]) -> dict[str, list[str]]:
+        query = {
+            "query": {
+                "terms": {
+                    "genre_id.keyword": genre_ids,
+                },
+            },
+        }
+
+        hits = self._client.search(index=self._GENRE_CATEGORIES_INDEX, body=query)["hits"]["hits"]
+        categories_by_genre = defaultdict(list)
+        for hit in hits:
+            categories_by_genre[hit["_source"]["genre_id"]].append(hit["_source"]["category_id"])
+
+        return categories_by_genre

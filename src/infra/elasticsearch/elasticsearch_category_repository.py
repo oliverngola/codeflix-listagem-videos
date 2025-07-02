@@ -34,9 +34,6 @@ class ElasticsearchCategoryRepository(CategoryRepository):
         sort: CategorySortableFields | None = None,
         direction: SortDirection = SortDirection.ASC,
     ) -> list[Category]:
-        # Se quiséssemos o total de resultados, poderíamos usar o campo "total" do response
-        # total_count = response["hits"]["total"]["value"]
-        # pode ser utilizado pra calcular a "next_page" por exemplo.
         query = {
             "from": (page - 1) * per_page,
             "size": per_page,
@@ -52,19 +49,18 @@ class ElasticsearchCategoryRepository(CategoryRepository):
             },
         }
 
-        response = self._client.search(
+        hits = self._client.search(
             index=self.INDEX,
             body=query,
-        )
-        category_hits = response["hits"]["hits"]
+        )["hits"]["hits"]
 
-        parsed_categories = []
-        for category in category_hits:
+        parsed_entities = []
+        for hit in hits:
             try:
-                parsed_category = Category(**category["_source"])
+                parsed_entity = Category(**hit["_source"])
             except ValidationError:
-                self._logger.error(f"Malformed category: {category}")
+                self._logger.error(f"Malformed category: {hit}")
             else:
-                parsed_categories.append(parsed_category)
+                parsed_entities.append(parsed_entity)
 
-        return parsed_categories
+        return parsed_entities

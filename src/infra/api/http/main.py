@@ -17,6 +17,14 @@ from src.application.list_cast_member import (
 from src.domain.cast_member import CastMember
 from src.domain.cast_member_repository import CastMemberRepository
 from src.infra.elasticsearch.elasticsearch_cast_member_repository import ElasticsearchCastMemberRepository
+from src.application.list_genre import (
+    ListGenre, 
+    ListGenreInput,
+    GenreSortableFields 
+)
+from src.domain.genre import Genre
+from src.domain.genre_repository import GenreRepository
+from src.infra.elasticsearch.elasticsearch_genre_repository import ElasticsearchGenreRepository
 
 app = FastAPI()
 
@@ -31,6 +39,9 @@ def get_category_repository() -> CategoryRepository:
 
 def get_cast_member_repository() -> CastMemberRepository:
     return ElasticsearchCastMemberRepository()
+
+def get_genre_repository() -> GenreRepository:
+    return ElasticsearchGenreRepository()
 
 
 @app.get("/categories", response_model=ListOutput[Category])
@@ -61,7 +72,7 @@ def list_categories(
 
 @app.get("/cast_members", response_model=ListOutput[CastMember])
 def list_cast_members(
-    repository: ElasticsearchCastMemberRepository = Depends(get_category_repository),
+    repository: ElasticsearchCastMemberRepository = Depends(get_cast_member_repository),
     search: str | None = Query(None, description="Search term for name or description"),
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(
@@ -78,6 +89,32 @@ def list_cast_members(
     ),
 ) -> ListOutput[CastMember]:
     return ListCastMember(repository=repository).execute(ListCastMemberInput(
+        search=search,
+        page=page,
+        per_page=per_page,
+        sort=sort,
+        direction=direction,
+    ))
+
+@app.get("/genres", response_model=ListOutput[Genre])
+def list_genres(
+    repository: ElasticsearchGenreRepository = Depends(get_genre_repository),
+    search: str | None = Query(None, description="Search term for name or description"),
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(
+        DEFAULT_PAGINATION_SIZE,
+        ge=1,
+        le=100,
+        description="Number of items per page",
+    ),
+    sort: GenreSortableFields = Query(
+        GenreSortableFields.NAME, description="Field to sort by"
+    ),
+    direction: SortDirection = Query(
+        SortDirection.ASC, description="Sort direction (asc or desc)"
+    ),
+) -> ListOutput[Genre]:
+    return ListGenre(repository=repository).execute(ListGenreInput(
         search=search,
         page=page,
         per_page=per_page,
