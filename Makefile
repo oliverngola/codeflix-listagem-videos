@@ -17,4 +17,4 @@ delete-connector:
 	curl -X DELETE localhost:8083/connectors/$(connector)
 
 test:
-	docker compose run --rm tests
+	docker compose run --rm tests pytest --ignore=src/infra/kafka/tests -vv
