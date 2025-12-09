@@ -43,7 +43,7 @@ class ElasticsearchGenreRepository(GenreRepository):
             "query": {
                 "bool": {
                     "must": (
-                        [{"multi_match": {"query": search, "fields": ["name", "type"]}}]
+                        [{"multi_match": {"query": search, "fields": ["name"]}}]
                         if search
                         else [{"match_all": {}}]
                     )
