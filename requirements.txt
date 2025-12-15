@@ -9,3 +9,5 @@ strawberry-graphql[fastapi]==0.254.0
 strawberry-graphql[cli]==0.254.0
 pytest-mock==3.14.0
 libcst==1.1.0
+PyJWT==2.10.1
+cryptography==44.0.0
